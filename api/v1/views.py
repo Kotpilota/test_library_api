@@ -7,7 +7,6 @@ from .serializers import AuthorSerializer, BookSerializer
 class AuthorViewSet(viewsets.ModelViewSet):
     queryset = Author.objects.all()
     serializer_class = AuthorSerializer
-    permission_classes = [permissions.AllowAny]
 
     filter_backends = [filters.SearchFilter]
     search_fields = ["last_name", "first_name", "middle_name"]
