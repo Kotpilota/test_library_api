@@ -1,4 +1,4 @@
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Count
 from rest_framework import viewsets, permissions, filters
 from django_filters.rest_framework import DjangoFilterBackend
 from library.models import Author, Book
@@ -6,25 +6,24 @@ from .serializers import AuthorSerializer, BookSerializer
 
 
 class AuthorViewSet(viewsets.ModelViewSet):
-    queryset = Author.objects.all()
     serializer_class = AuthorSerializer
 
-    filter_backends = [filters.SearchFilter]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["last_name", "first_name", "middle_name"]
     ordering_fields = ["last_name", "first_name"]
     ordering = ["last_name", "first_name"]
 
     def get_queryset(self):
         """
-        Оптимизированный queryset:
-        - prefetch_related загружает все книги автора одним запросом
-        - внутри Prefetch используем select_related для оптимизации
-        - сортировка книг по названию для стабильности результатов
+        Оптимизированный queryset с аннотацией books_count
+        для избежания дополнительных запросов в сериализаторе
         """
-        return Author.objects.prefetch_related(
+        return Author.objects.annotate(
+            _books_count=Count("books")
+        ).prefetch_related(
             Prefetch(
-                'books',
-                queryset=Book.objects.select_related('author').order_by('title')
+                "books",
+                queryset=Book.objects.select_related("author").order_by("title")
             )
         )
 
@@ -48,10 +47,10 @@ class BookViewSet(viewsets.ModelViewSet):
 
     # Сортировка по названию с возможностью обратной сортировки
     ordering_fields = ["title", "year", "author__last_name"]
-    ordering = ["title"]
+    ordering = ["title"]  # По умолчанию сортировка A-Z
 
     def get_queryset(self):
-        return Book.objects.select_related('author')
+        return Book.objects.select_related("author")
 
     def get_permissions(self):
         if self.request.method in permissions.SAFE_METHODS:

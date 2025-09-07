@@ -17,18 +17,9 @@ class AuthorSerializer(serializers.ModelSerializer):
         )
 
     def get_books_count(self, obj):
-        """
-        Получение количества книг автора.
-        Используем len() для подсчета уже загруженных данных.
-        """
-        # Проверяем, были ли книги предварительно загружены
-        if hasattr(obj,
-                   '_prefetched_objects_cache') and 'books' in obj._prefetched_objects_cache:
-            # Используем уже загруженные данные
-            return len(obj._prefetched_objects_cache['books'])
-        else:
-            # Делаем отдельный запрос (только если prefetch не использовался)
-            return obj.books.count()
+        if hasattr(obj, '_books_count'):
+            return obj._books_count
+
 
 
 class BookSerializer(serializers.ModelSerializer):
@@ -48,3 +39,10 @@ class BookSerializer(serializers.ModelSerializer):
             "id", "title", "year", "preface",
             "cover", "author", "author_id"
         )
+
+    def validate_year(self, value):
+        if value < 1000 or value > 2030:
+            raise serializers.ValidationError(
+                "Год издания должен быть между 1000 и 2030"
+            )
+        return value
