@@ -1,3 +1,4 @@
+from django.db.models import Prefetch
 from rest_framework import viewsets, permissions, filters
 from django_filters.rest_framework import DjangoFilterBackend
 from library.models import Author, Book
@@ -13,6 +14,20 @@ class AuthorViewSet(viewsets.ModelViewSet):
     ordering_fields = ["last_name", "first_name"]
     ordering = ["last_name", "first_name"]
 
+    def get_queryset(self):
+        """
+        Оптимизированный queryset:
+        - prefetch_related загружает все книги автора одним запросом
+        - внутри Prefetch используем select_related для оптимизации
+        - сортировка книг по названию для стабильности результатов
+        """
+        return Author.objects.prefetch_related(
+            Prefetch(
+                'books',
+                queryset=Book.objects.select_related('author').order_by('title')
+            )
+        )
+
     def get_permissions(self):
         if self.request.method in permissions.SAFE_METHODS:
             return [permissions.AllowAny()]
@@ -20,13 +35,23 @@ class AuthorViewSet(viewsets.ModelViewSet):
 
 
 class BookViewSet(viewsets.ModelViewSet):
-    queryset = Book.objects.all()
     serializer_class = BookSerializer
 
-    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter,
+                       filters.SearchFilter]
+
+    # Фильтрация по связанному автору и году (оба поля индексированы)
     filterset_fields = ["author", "year"]
-    ordering_fields = ["title"]
+
+    # Поиск по названию книги (поле индексировано)
+    search_fields = ["title"]
+
+    # Сортировка по названию с возможностью обратной сортировки
+    ordering_fields = ["title", "year", "author__last_name"]
     ordering = ["title"]
+
+    def get_queryset(self):
+        return Book.objects.select_related('author')
 
     def get_permissions(self):
         if self.request.method in permissions.SAFE_METHODS:
