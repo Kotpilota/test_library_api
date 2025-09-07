@@ -1,4 +1,4 @@
-from django.db.models import Prefetch, Count
+from django.db.models import Prefetch
 from rest_framework import viewsets, permissions, filters
 from django_filters.rest_framework import DjangoFilterBackend
 from library.models import Author, Book
@@ -14,13 +14,7 @@ class AuthorViewSet(viewsets.ModelViewSet):
     ordering = ["last_name", "first_name"]
 
     def get_queryset(self):
-        """
-        Оптимизированный queryset с аннотацией books_count
-        для избежания дополнительных запросов в сериализаторе
-        """
-        return Author.objects.annotate(
-            _books_count=Count("books")
-        ).prefetch_related(
+        return Author.objects.prefetch_related(
             Prefetch(
                 "books",
                 queryset=Book.objects.select_related("author").order_by("title")
@@ -45,9 +39,8 @@ class BookViewSet(viewsets.ModelViewSet):
     # Поиск по названию книги (поле индексировано)
     search_fields = ["title"]
 
-    # Сортировка по названию с возможностью обратной сортировки
     ordering_fields = ["title", "year", "author__last_name"]
-    ordering = ["title"]  # По умолчанию сортировка A-Z
+    ordering = ["title"]
 
     def get_queryset(self):
         return Book.objects.select_related("author")
