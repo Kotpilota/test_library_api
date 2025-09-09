@@ -40,31 +40,12 @@ class BookSerializer(serializers.ModelSerializer):
 
     id = serializers.ReadOnlyField()
 
-    # РЕШЕНИЕ: SerializerMethodField для обложки вместо простого ImageField
-    # ПОЧЕМУ: Нужно генерировать полные URL с учетом MEDIA_BASE_URL
-    # Это критично для deployment с отдельным файловым сервером (S3, CDN)
-    cover = serializers.SerializerMethodField()
-
     class Meta:
         model = Book
         fields = (
             "id", "title", "year", "preface",
             "cover", "author", "author_id"
         )
-
-    def get_cover(self, obj):
-        """
-        РЕШЕНИЕ: Гибкая генерация URL для медиафайлов
-        ПОЧЕМУ:
-        1. В dev среде файлы обслуживает Django (obj.cover.url)
-        2. В production может быть CDN (MEDIA_BASE_URL + obj.cover.url)
-        3. Graceful degradation - если файла нет, возвращаем None, а не ошибку
-        """
-        if obj.cover:
-            if hasattr(settings, 'MEDIA_BASE_URL') and settings.MEDIA_BASE_URL:
-                return f"{settings.MEDIA_BASE_URL}{obj.cover.url}"
-            return obj.cover.url
-        return None
 
     def validate_year(self, value):
         if value < 1000 or value > 2030:
